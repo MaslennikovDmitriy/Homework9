@@ -73,7 +73,7 @@ int main()
 	{
 		shared_memory_remove() { shared_memory_object::remove("MySharedMemory"); }
 		~shared_memory_remove() { shared_memory_object::remove("MySharedMemory"); }
-	} remover;
+	};
 
 	managed_shared_memory segment(open_or_create, "MySharedMemory", 65536);
 	void_allocator alloc_inst(segment.get_segment_manager());
@@ -92,7 +92,6 @@ int main()
 	complex_data0_->number_of_users++;
 	Write_Only(ID, complex_data0_);
 
-	shared_memory_remove();
 	system("pause");
 	return EXIT_SUCCESS;
 }
