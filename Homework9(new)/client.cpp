@@ -2,6 +2,8 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
+#include <mutex>
 
 #include <boost/interprocess/mapped_region.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
@@ -45,10 +47,8 @@ typedef vector<complex_data, complex_data_allocator>   complex_data_vector;
 void Write_Only(size_t ID, complex_data* complex_data0_)
 {
 	std::string message;
-	size_t indicator = 0;
 	while (message != "end")
 	{
-		std::cout << "Your message: " << std::endl;
 		getline(std::cin, message);
 		complex_data0_->ID_vector.push_back(ID);
 		complex_data0_->string_vector.push_back(message);
@@ -63,9 +63,18 @@ void Write_Only(size_t ID, complex_data* complex_data0_)
 }
 void Read_Only(size_t ID, complex_data* complex_data0_)
 {
-
+	std::mutex m1;
+	while (complex_data0_->indicator != 2)
+	{
+		if ((complex_data0_->indicator == 1) && (complex_data0_->ID_vector.back() != ID))
+		{
+			m1.lock();
+			std::cout << "Person #" << complex_data0_->ID_vector.back() << ": " << complex_data0_->string_vector.back() << std::endl;
+			complex_data0_->indicator = 0;
+			m1.unlock();
+		}
+	}
 }
-
 
 int main()
 {
@@ -74,8 +83,7 @@ int main()
 		shared_memory_remove() { shared_memory_object::remove("MySharedMemory"); }
 		~shared_memory_remove() { shared_memory_object::remove("MySharedMemory"); }
 	};
-
-	managed_shared_memory segment(open_or_create, "MySharedMemory", 65536);
+	managed_shared_memory segment(open_or_create, "MySharedMemory", sizeof(char) * 10000);
 	void_allocator alloc_inst(segment.get_segment_manager());
 	complex_data* complex_data0_ = segment.find_or_construct<complex_data>("MyComplexData")(alloc_inst);
 	if (complex_data0_->number_of_users == 0) complex_data0_->vec_size = 0;
@@ -90,8 +98,10 @@ int main()
 	}
 	size_t ID = complex_data0_->number_of_users + 1;
 	complex_data0_->number_of_users++;
-	Write_Only(ID, complex_data0_);
-
+	std::thread writer(Write_Only, ID, complex_data0_);
+	std::thread reader(Read_Only, ID, complex_data0_);
+	writer.join();
+	reader.join();
 	system("pause");
 	return EXIT_SUCCESS;
 }
