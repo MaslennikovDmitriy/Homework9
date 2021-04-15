@@ -14,13 +14,15 @@
 #include <boost/interprocess/containers/string.hpp>
 
 using namespace boost::interprocess;
+std::mutex m_mutex;
+const int Maximum_Char_Quantity = 10000;
 
-typedef managed_shared_memory::segment_manager segment_manager_t;
+typedef managed_shared_memory::segment_manager                                          segment_manager_t;
 typedef boost::container::scoped_allocator_adaptor<allocator<void, segment_manager_t> > void_allocator;
-typedef void_allocator::rebind<int>::other              int_allocator;
-typedef void_allocator::rebind<std::string>::other      string_allocator;
-typedef vector<std::string, string_allocator>       string_vector;
-typedef vector<int, int_allocator>       int_vector;
+typedef void_allocator::rebind<int>::other                                              int_allocator;
+typedef void_allocator::rebind<std::string>::other                                      string_allocator;
+typedef vector<std::string, string_allocator>                                           string_vector;
+typedef vector<int, int_allocator>                                                      int_vector;
 
 class complex_data
 {
@@ -63,15 +65,13 @@ void Write_Only(size_t ID, complex_data* complex_data0_)
 }
 void Read_Only(size_t ID, complex_data* complex_data0_)
 {
-	std::mutex m1;
 	while (complex_data0_->indicator != 2)
 	{
 		if ((complex_data0_->indicator == 1) && (complex_data0_->ID_vector.back() != ID))
 		{
-			m1.lock();
+			std::lock_guard < std::mutex > lock(m_mutex);
 			std::cout << "Person #" << complex_data0_->ID_vector.back() << ": " << complex_data0_->string_vector.back() << std::endl;
 			complex_data0_->indicator = 0;
-			m1.unlock();
 		}
 	}
 }
@@ -83,7 +83,7 @@ int main()
 		shared_memory_remove() { shared_memory_object::remove("MySharedMemory"); }
 		~shared_memory_remove() { shared_memory_object::remove("MySharedMemory"); }
 	};
-	managed_shared_memory segment(open_or_create, "MySharedMemory", sizeof(char) * 10000);
+	managed_shared_memory segment(open_or_create, "MySharedMemory", sizeof(char) * Maximum_Char_Quantity);
 	void_allocator alloc_inst(segment.get_segment_manager());
 	complex_data* complex_data0_ = segment.find_or_construct<complex_data>("MyComplexData")(alloc_inst);
 	if (complex_data0_->number_of_users == 0) complex_data0_->vec_size = 0;
